@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>監控方法決策樹 — 可編輯版</title>
+<style>
+  :root{
+    --bg:#FBFAF7; --ink:#2A2A28; --sub:#6B6A64; --line:#DAD8D0; --card:#FFFFFF;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",-apple-system,sans-serif;}
+  header{padding:16px 20px 10px;border-bottom:1px solid var(--line);background:var(--card);}
+  h1{font-size:18px;margin:0 0 4px;font-weight:600;}
+  .hint{font-size:12.5px;color:var(--sub);margin:0 0 10px;}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  button{font-family:inherit;font-size:13px;padding:7px 12px;border-radius:7px;border:1px solid var(--line);background:#F5F4EF;color:var(--ink);cursor:pointer;}
+  button:hover{background:#ECEAE2;}
+  button.active{background:#2A2A28;color:#fff;border-color:#2A2A28;}
+  #status{font-size:12.5px;color:var(--sub);margin-left:4px;}
+  .layout{display:flex;height:calc(100vh - 96px);}
+  #scrollArea{flex:1;overflow:auto;position:relative;background:
+    linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px) 0 0/24px 24px,
+    linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px) 0 0/24px 24px;}
+  #canvas{position:relative;width:2700px;height:2000px;}
+  svg{position:absolute;left:0;top:0;pointer-events:none;}
+  .node{position:absolute;width:190px;border-radius:9px;border:1.4px solid;box-shadow:0 1px 3px rgba(0,0,0,0.06);font-size:12.5px;user-select:none;}
+  .node.pending{outline:3px solid #2A2A28;outline-offset:2px;}
+  .node-handle{display:flex;align-items:center;gap:6px;padding:4px 6px;cursor:grab;border-bottom:1px solid rgba(0,0,0,0.08);}
+  .node-handle:active{cursor:grabbing;}
+  .color-dot{width:11px;height:11px;border-radius:3px;cursor:pointer;flex:none;border:1px solid rgba(0,0,0,0.2);}
+  .drag-icon{flex:1;text-align:center;font-size:11px;opacity:0.5;letter-spacing:1px;}
+  .del-btn{cursor:pointer;font-size:13px;opacity:0.55;flex:none;padding:0 2px;}
+  .del-btn:hover{opacity:1;}
+  .node-text{padding:6px 8px 8px;white-space:pre-wrap;outline:none;line-height:1.45;overflow-wrap:break-word;min-height:20px;}
+  .edge-label{position:absolute;background:var(--bg);font-size:11px;color:var(--sub);padding:1px 5px;border-radius:5px;outline:none;white-space:nowrap;transform:translate(-50%,-50%);border:1px solid var(--line);}
+  #sidebar{width:270px;border-left:1px solid var(--line);background:var(--card);overflow-y:auto;padding:12px;flex:none;}
+  #sidebar h2{font-size:13px;margin:0 0 8px;color:var(--sub);font-weight:600;}
+  .edge-row{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11.5px;padding:4px 2px;border-bottom:1px solid #F1EFE8;}
+  .edge-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .edge-row button{padding:1px 7px;font-size:11px;}
+  input[type=file]{display:none;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>監控方法決策樹 — 可編輯版</h1>
+  <p class="hint">拖曳節點頂部握把移動位置｜點文字區直接編輯內容｜點左上圓點循環切換顏色｜「連接模式」開啟後依序點兩個節點建立連線｜可匯出/匯入 JSON 保存編輯結果</p>
+  <div class="toolbar">
+    <button id="btnAdd">＋ 新增節點</button>
+    <button id="btnConnect">連接模式：關</button>
+    <button id="btnExport">匯出 JSON</button>
+    <button id="btnImport">匯入 JSON</button>
+    <button id="btnReset">重置為原始版本</button>
+    <input type="file" id="fileInput" accept="application/json">
+    <span id="status"></span>
+  </div>
+</header>
+
+<div class="layout">
+  <div id="scrollArea"><div id="canvas">
+    <svg id="svgLayer"><defs>
+      <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#8A8880"/></marker>
+    </defs></svg>
+  </div></div>
+  <div id="sidebar">
+    <h2>連線清單</h2>
+    <div id="edgeList"></div>
+  </div>
+</div>
+
+<script>
+const COLORS = {
+  gate:{bg:'#F1EFE8',border:'#8A8880',text:'#2A2A28'},
+  discrete:{bg:'#FBEAF0',border:'#993556',text:'#4B1528'},
+  batchStatic:{bg:'#E6F1FB',border:'#185FA5',text:'#042C53'},
+  batchTraj:{bg:'#FAEEDA',border:'#854F0B',text:'#412402'},
+  tsUni:{bg:'#FAECE7',border:'#993C1D',text:'#4A1B0C'},
+  noY:{bg:'#E1F5EE',border:'#0F6E56',text:'#04342C'},
+  hasY:{bg:'#EEEDFE',border:'#534AB7',text:'#26215C'},
+  diag:{bg:'#FCEBEB',border:'#A32D2D',text:'#501313'}
+};
+const COLOR_KEYS = Object.keys(COLORS);
+
+const NODES_RAW = [
+['A','資料輸入：計算 ndc','gate'],
+['B','ndc ≥ 5 ?','gate'],
+['C','Ordinal 有序?','gate'],
+['C1',"Fisher's exact test\nMultinomial CUSUM\n特定類別 p / np-chart",'discrete'],
+['C2','指派分數 CUSUM/EWMA\n累積比例 p-chart\nproportional odds','discrete'],
+['D','常態分布?','gate'],
+['D1','Transformation\n或 distribution-specific /\n無母數管制圖','gate'],
+['E','監控結構','gate'],
+['G','批次序列本身\n有自相關?','gate'],
+['H','改走 ARIMA-residual 監控','tsUni'],
+['I','歷史資料量足夠?','gate'],
+['I1','Spec limit 監控','batchStatic'],
+['J','偏移類型','gate'],
+['K','Subgroup size','gate'],
+['K1','I-MR','batchStatic'],
+['K2','Xbar-R','batchStatic'],
+['K3','Xbar-S','batchStatic'],
+['L','EWMA / CUSUM','batchStatic'],
+['M','變數共線性','gate'],
+['M1','MEWMA / MCUSUM','noY'],
+['M2','PCA-based MSPC','noY'],
+['N','批次等長?','gate'],
+['N1','DTW / indicator variable 對齊','batchTraj'],
+['N2','FDA / functional PCA\nB-spline 展開係數','batchTraj'],
+['O0','批次有明確\n多相位結構?','gate'],
+['O0a','多相位建模\n相位辨識+各相位局部模型','batchTraj'],
+['O','有 Y 品質變數?','gate'],
+['O1','MPCA','noY'],
+['O1b','LSTM-autoencoder / VAE','noY'],
+['O2','MPLS','hasY'],
+['O2b','JITL 局部加權建模','hasY'],
+['Diag','警報後：RBC 根因定位','diag'],
+['P','單變量 / 多變量','gate'],
+['Q','ADF test → 差分階數 d','tsUni'],
+['Q1','ACF/PACF → AR/MA 階數','tsUni'],
+['Q2','配 ARIMA','tsUni'],
+['Q3','Ljung-Box：\n殘差為白噪音?','gate'],
+['Q4','殘差 I-MR / CUSUM / EWMA','tsUni'],
+['R','ADF 穩態?','gate'],
+['R1','Cointegration 分析\n取共整合殘差','tsUni'],
+['S','有Y? 有dynamic?','gate'],
+['S1','PCA MSPC\nHotelling T² + SPE','noY'],
+['S2','DiPCA / CVA / SFA','noY'],
+['S3','PLS / CPLS','hasY'],
+['S4','DiPLS','hasY'],
+['CompSel','PC/LV 數量選取\nCV：PRESS/Q² + Parallel Analysis','gate']
+];
+
+const EDGES_RAW = [
+['A','B',''],['B','C','否, 類別/次序型'],['C','C1','Nominal 無序'],['C','C2','Ordinal 有序'],
+['B','D','是, 連續型'],['D','D1','否'],['D','E','是'],['D1','E',''],
+['E','G','A 批次單點'],['G','H','有, ACF/PACF顯著'],['G','I','無'],
+['I','I1','初期不足'],['I','J','足夠'],['J','K','短期大幅'],
+['K','K1','n=1'],['K','K2','n=2~9'],['K','K3','n≥10'],
+['J','L','長期小幅'],['J','M','多變量'],['M','M1','少量/中度相關'],['M','M2','多量/高共線'],
+['E','N','B 批次軌跡'],['N','N1','不等長, 逐點對齊'],['N','N2','不等長, 函數表示'],['N','O0','等長'],
+['N1','O0',''],['N2','O0',''],['O0','O0a','是'],['O0','O','否, 單一相位'],['O0a','O',''],
+['O','O1','無Y, 線性'],['O','O1b','無Y, 非線性/長期依賴'],['O','O2','有Y, 線性'],['O','O2b','有Y, 緩慢漂移/多重模式'],
+['O1','Diag',''],['O1b','Diag',''],['O2','Diag',''],['O2b','Diag',''],
+['E','P','C 連續製程時間序列'],['P','Q','單變量'],['Q','Q1',''],['Q1','Q2',''],['Q2','Q3',''],
+['Q3','Q1','否, 重調階數',true],['Q3','Q4','是'],['H','Q1','同一套殘差監控',true],
+['P','R','多變量'],['R','R1','非穩態'],['R1','S',''],['R','S','穩態'],
+['S','S1','無Y 無dynamic'],['S','S2','無Y 有dynamic'],['S','S3','有Y 無dynamic'],['S','S4','有Y 有dynamic'],
+['M2','CompSel','',true],['S1','CompSel','',true],['O1','CompSel','',true],['S3','CompSel','',true],['O2','CompSel','',true]
+];
+
+function buildInitial(){
+  const nodes = NODES_RAW.map(([id,text,color])=>({id,text,color,x:0,y:0}));
+  const edges = EDGES_RAW.map(([from,to,label,dashed],i)=>({id:'e'+i+'_'+from+'_'+to,from,to,label:label||'',dashed:!!dashed}));
+  layout(nodes, edges);
+  return {nodes, edges};
+}
+
+function layout(nodes, edges){
+  const idx = {}; nodes.forEach(n=>idx[n.id]=n);
+  const level = {}; nodes.forEach(n=>level[n.id]=0);
+  const layoutEdges = edges.filter(e=>!(e.from==='Q3'&&e.to==='Q1'));
+  for(let pass=0; pass<nodes.length; pass++){
+    let changed=false;
+    layoutEdges.forEach(e=>{
+      if(idx[e.from]&&idx[e.to]){
+        const nl = level[e.from]+1;
+        if(nl>level[e.to]){ level[e.to]=nl; changed=true; }
+      }
+    });
+    if(!changed) break;
+  }
+  const rows = {};
+  nodes.forEach(n=>{ const lv=level[n.id]||0; (rows[lv]=rows[lv]||[]).push(n); });
+  const CANVAS_W = 2700, ROW_H = 150, NODE_PITCH = 215, TOP = 50;
+  Object.keys(rows).forEach(lv=>{
+    const row = rows[lv];
+    const totalW = row.length*NODE_PITCH;
+    const startX = Math.max(20,(CANVAS_W-totalW)/2);
+    row.forEach((n,i)=>{ n.x = startX + i*NODE_PITCH; n.y = TOP + (+lv)*ROW_H; });
+  });
+}
+
+let state = buildInitial();
+let connectMode = false;
+let pendingSource = null;
+let dragging = null;
+
+const canvasEl = document.getElementById('canvas');
+const svgEl = document.getElementById('svgLayer');
+const edgeListEl = document.getElementById('edgeList');
+const statusEl = document.getElementById('status');
+
+function render(){
+  canvasEl.querySelectorAll('.node').forEach(el=>el.remove());
+  svgEl.querySelectorAll('line,.edge-label-svg').forEach(el=>el.remove());
+  document.querySelectorAll('.edge-label').forEach(el=>el.remove());
+
+  state.nodes.forEach(n=>{
+    const c = COLORS[n.color]||COLORS.gate;
+    const el = document.createElement('div');
+    el.className = 'node'+(pendingSource===n.id?' pending':'');
+    el.style.left=n.x+'px'; el.style.top=n.y+'px';
+    el.style.background=c.bg; el.style.borderColor=c.border; el.style.color=c.text;
+    el.dataset.id = n.id;
+
+    const handle = document.createElement('div');
+    handle.className='node-handle';
+    const dot = document.createElement('span');
+    dot.className='color-dot'; dot.style.background=c.border;
+    dot.onclick=(ev)=>{ ev.stopPropagation(); cycleColor(n.id); };
+    const drag = document.createElement('span');
+    drag.className='drag-icon'; drag.textContent='⋮⋮ 拖曳';
+    const del = document.createElement('span');
+    del.className='del-btn'; del.textContent='×';
+    del.onclick=(ev)=>{ ev.stopPropagation(); deleteNode(n.id); };
+    handle.append(dot,drag,del);
+
+    const txt = document.createElement('div');
+    txt.className='node-text'; txt.contentEditable='true'; txt.textContent=n.text;
+    txt.oninput=()=>{ n.text = txt.textContent; };
+    txt.onmousedown=(ev)=>ev.stopPropagation();
+
+    handle.onmousedown=(ev)=>{
+      if(connectMode){ handleConnectClick(n.id); return; }
+      startDrag(ev, n);
+    };
+
+    el.append(handle, txt);
+    canvasEl.appendChild(el);
+  });
+
+  state.edges.forEach(e=>{
+    const from = state.nodes.find(n=>n.id===e.from);
+    const to = state.nodes.find(n=>n.id===e.to);
+    if(!from||!to) return;
+    drawEdge(from, to, e);
+  });
+
+  renderEdgeList();
+}
+
+function nodeRect(n){
+  const el = canvasEl.querySelector('.node[data-id="'+CSS.escape(n.id)+'"]');
+  const w = el?el.offsetWidth:190, h = el?el.offsetHeight:56;
+  return {cx:n.x+w/2, cy:n.y+h/2, w, h};
+}
+function edgePoint(rect,dx,dy){
+  if(dx===0&&dy===0) return {x:rect.cx,y:rect.cy};
+  const hw=rect.w/2, hh=rect.h/2;
+  const sx = dx!==0? hw/Math.abs(dx): Infinity;
+  const sy = dy!==0? hh/Math.abs(dy): Infinity;
+  const s = Math.min(sx,sy);
+  return {x:rect.cx+dx*s, y:rect.cy+dy*s};
+}
+function drawEdge(from,to,e){
+  const r1 = nodeRect(from), r2 = nodeRect(to);
+  const dx = r2.cx-r1.cx, dy = r2.cy-r1.cy;
+  const p1 = edgePoint(r1,dx,dy);
+  const p2 = edgePoint(r2,-dx,-dy);
+  const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+  line.setAttribute('x1',p1.x); line.setAttribute('y1',p1.y);
+  line.setAttribute('x2',p2.x); line.setAttribute('y2',p2.y);
+  line.setAttribute('stroke','#8A8880'); line.setAttribute('stroke-width','1.4');
+  if(e.dashed) line.setAttribute('stroke-dasharray','5,4');
+  line.setAttribute('marker-end','url(#arrow)');
+  svgEl.appendChild(line);
+
+  if(e.label!==undefined){
+    const mx=(p1.x+p2.x)/2, my=(p1.y+p2.y)/2;
+    const lbl = document.createElement('div');
+    lbl.className='edge-label'; lbl.contentEditable='true';
+    lbl.style.left=mx+'px'; lbl.style.top=my+'px';
+    lbl.textContent=e.label;
+    lbl.oninput=()=>{ e.label = lbl.textContent; };
+    lbl.onmousedown=(ev)=>ev.stopPropagation();
+    canvasEl.appendChild(lbl);
+  }
+}
+
+function startDrag(ev, n){
+  ev.preventDefault();
+  const startX=ev.clientX, startY=ev.clientY, ox=n.x, oy=n.y;
+  dragging = n;
+  function move(e2){
+    n.x = ox + (e2.clientX-startX);
+    n.y = oy + (e2.clientY-startY);
+    render();
+  }
+  function up(){
+    document.removeEventListener('mousemove',move);
+    document.removeEventListener('mouseup',up);
+    dragging=null;
+  }
+  document.addEventListener('mousemove',move);
+  document.addEventListener('mouseup',up);
+}
+
+function cycleColor(id){
+  const n = state.nodes.find(n=>n.id===id);
+  const i = COLOR_KEYS.indexOf(n.color);
+  n.color = COLOR_KEYS[(i+1)%COLOR_KEYS.length];
+  render();
+}
+
+function deleteNode(id){
+  state.nodes = state.nodes.filter(n=>n.id!==id);
+  state.edges = state.edges.filter(e=>e.from!==id && e.to!==id);
+  render();
+}
+
+function deleteEdge(id){
+  state.edges = state.edges.filter(e=>e.id!==id);
+  render();
+}
+
+function handleConnectClick(id){
+  if(!pendingSource){ pendingSource=id; render(); return; }
+  if(pendingSource===id){ pendingSource=null; render(); return; }
+  const eid = 'e_'+Date.now();
+  state.edges.push({id:eid, from:pendingSource, to:id, label:'', dashed:false});
+  statusEl.textContent = '已連接 '+pendingSource+' → '+id;
+  pendingSource = null;
+  toggleConnect(false);
+  render();
+}
+
+function renderEdgeList(){
+  edgeListEl.innerHTML='';
+  state.edges.forEach(e=>{
+    const row = document.createElement('div');
+    row.className='edge-row';
+    const span = document.createElement('span');
+    span.textContent = e.from+' → '+e.to+(e.label?'：'+e.label:'');
+    const btn = document.createElement('button');
+    btn.textContent='刪除';
+    btn.onclick=()=>deleteEdge(e.id);
+    row.append(span,btn);
+    edgeListEl.appendChild(row);
+  });
+}
+
+function toggleConnect(force){
+  connectMode = (force!==undefined)?force:!connectMode;
+  pendingSource=null;
+  document.getElementById('btnConnect').textContent = '連接模式：'+(connectMode?'開':'關');
+  document.getElementById('btnConnect').className = connectMode?'active':'';
+  if(!connectMode) statusEl.textContent='';
+  render();
+}
+
+document.getElementById('btnAdd').onclick=()=>{
+  const area = document.getElementById('scrollArea');
+  const id = 'N'+Date.now();
+  state.nodes.push({id, text:'新節點', color:'gate', x:area.scrollLeft+300, y:area.scrollTop+150});
+  render();
+};
+document.getElementById('btnConnect').onclick=()=>toggleConnect();
+document.getElementById('btnExport').onclick=()=>{
+  const blob = new Blob([JSON.stringify({nodes:state.nodes,edges:state.edges},null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'spc-decision-tree.json';
+  a.click();
+};
+document.getElementById('btnImport').onclick=()=>document.getElementById('fileInput').click();
+document.getElementById('fileInput').onchange=(ev)=>{
+  const file = ev.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload=()=>{
+    try{
+      const data = JSON.parse(reader.result);
+      if(data.nodes && data.edges){ state = {nodes:data.nodes, edges:data.edges}; render(); statusEl.textContent='已匯入'; }
+    }catch(err){ statusEl.textContent='匯入失敗：檔案格式錯誤'; }
+  };
+  reader.readAsText(file);
+};
+document.getElementById('btnReset').onclick=()=>{
+  if(confirm('確定要重置為原始版本嗎？目前的編輯將會遺失。')){
+    state = buildInitial(); pendingSource=null; toggleConnect(false);
+  }
+};
+
+render();
+</script>
+</body>
+</html>
