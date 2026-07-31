@@ -1,0 +1,10 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+dbt_packages/
+target/
+logs/
+profiles.yml
+node_modules/

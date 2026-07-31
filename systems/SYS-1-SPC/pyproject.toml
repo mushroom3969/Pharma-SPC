@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "sys-1-spc"
+version = "0.1.0"
+description = "SYS-1-SPC"
+authors = []
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115"
+uvicorn = { extras = ["standard"], version = "^0.32" }
+pydantic = "^2.9"
+pharma-core = { path = "../../shared/pharma_core", develop = true }
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+httpx = "^0.27"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
