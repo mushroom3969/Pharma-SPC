@@ -1,0 +1,47 @@
+version: 2
+
+seeds:
+  - name: feature_metadata
+    description: 每個 canonical_feature 的型態與監控結構登記，人工維護。
+    config:
+      column_types:
+        canonical_feature: text
+        scale_type: text
+        monitoring_structure: text
+    columns:
+      - name: canonical_feature
+        tests:
+          - unique
+          - not_null
+      - name: scale_type
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["nominal", "ordinal", "continuous"]
+      - name: monitoring_structure
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  ["batch_aggregate", "batch_trajectory", "continuous_time_series"]
+
+  - name: feature_mapping
+    description: 原始欄位名稱（raw_parameter/source_filename）對應到統一命名（canonical_feature），人工維護。
+    config:
+      column_types:
+        source_filename: text
+        raw_parameter: text
+        canonical_feature: text
+    columns:
+      - name: canonical_feature
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('feature_metadata')
+                field: canonical_feature
+      - name: raw_parameter
+        tests:
+          - not_null

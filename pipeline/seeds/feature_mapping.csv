@@ -1,0 +1,28 @@
+source_filename,raw_parameter,canonical_feature
+ZA_3F_EG1206A_2000L.xlsx,Main Culture in 2000 L SUB 2_Duration of temperature shift (hour),5days_duration
+ZA_3F_EG12014.xlsx,Main Culture in 2000 L SUB_Duration of day 5 temperature shift (h),5days_duration
+ZA_3F_EG1206A_2000L.xlsx,Main Culture in 2000 L SUB_Duration of day 8 temperature shift (hr),5days_duration
+ZA_3F_EG1206A_4000L.xlsx,Main Culture in 2000 L SUB_Duration of temperature shift (h),5days_duration
+ZA_3F_EG1206A_2000L.xlsx,Main Culture in 2000 L SUB1_Duration of temperature shift (hour),5days_duration
+ZA_3F_EG1206A_2000L.xlsx,Main Culture in 2000 L SUB 2_Temperature_before temperature shift (degC),5days_temp
+ZA_3F_EG1206A_2000L.xlsx,Main Culture in 2000 L SUB_Temperature in day 0 to 8_max (degC),5days_temp_max
+ZA_3F_EG1206A_4000L.xlsx,Main Culture in 2000 L SUB_Temperature_before temperature shift_Max (Degree C),5days_temp_max
+ZA_3F_EG12014.xlsx,Main Culture in 2000 L SUB_Temperature_Day 0 to 5_Max (Degree C),5days_temp_max
+ZA_3F_EG1206A_2000L.xlsx,Main Culture in 2000 L SUB1_Temperature before temperature shift_max (degC),5days_temp_max
+ZA_3F_EG1206A_2000L.xlsx,Main Culture in 2000 L SUB_Temperature in day 0 to 8_min (degC),5days_temp_min
+ZA_3F_EG1206A_4000L.xlsx,Main Culture in 2000 L SUB_Temperature_before temperature shift_Min (Degree C),5days_temp_min
+ZA_3F_EG12014.xlsx,Main Culture in 2000 L SUB_Temperature_Day 0 to 5_Min (Degree C),5days_temp_min
+ZA_3F_EG1206A_2000L.xlsx,Main Culture in 2000 L SUB1_Temperature before temperature shift_min (degC),5days_temp_min
+ZA_3F_EG1206A_2000L.xlsx,Harvest  SUB_Duration of temperature shift before harvest (h),harvest_duration
+ZA_3F_EG1206A_2000L.xlsx,Harvest SUB 1_Duration of temperature shift before harvest (hour),harvest_duration
+ZA_3F_EG1206A_2000L.xlsx,Harvest SUB 2_Duration of temperature shift before harvest (hour),harvest_duration
+ZA_3F_EG1206A_4000L.xlsx,Main Culture in 2000 L SUB_Duration of temperature shift before harvest (h),harvest_duration
+ZA_3F_EG1206A_2000L.xlsx,Main Culture in 2000 L SUB 2_Temperature_after temperature shift (degC),harvest_temp
+ZA_3F_EG1206A_2000L.xlsx,Main Culture in 2000 L SUB_Temperature in day 8 to 16_max (degC),harvest_temp_max
+ZA_3F_EG1206A_4000L.xlsx,Main Culture in 2000 L SUB_Temperature_after temperature shift_Max (Degree C),harvest_temp_max
+ZA_3F_EG12014.xlsx,Main Culture in 2000 L SUB_Temperature_Day 5 to 11_Max (Degree C),harvest_temp_max
+ZA_3F_EG1206A_2000L.xlsx,Main Culture in 2000 L SUB1_Temperature after temperature shift_max (degC),harvest_temp_max
+ZA_3F_EG1206A_2000L.xlsx,Main Culture in 2000 L SUB_Temperature in day 8 to 16_min (degC),harvest_temp_min
+ZA_3F_EG1206A_4000L.xlsx,Main Culture in 2000 L SUB_Temperature_after temperature shift_Min (Degree C),harvest_temp_min
+ZA_3F_EG12014.xlsx,Main Culture in 2000 L SUB_Temperature_Day 5 to 11_Min (Degree C),harvest_temp_min
+ZA_3F_EG1206A_2000L.xlsx,Main Culture in 2000 L SUB1_Temperature after temperature shift_min (degC),harvest_temp_min
