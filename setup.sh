@@ -4,7 +4,7 @@
 # 用法: 從 repo 根目錄執行 ./setup.sh
 #
 # 依「PHARMA-ANALYTICS 專案流程手冊」02 節的順序執行：
-#   1. shared/pharma_core   (Poetry)  — 其他環境都靠 editable install 引用它，必須最先裝
+#   1. shared/*               (Poetry, in-project venv)  — 純函式共用邏輯（如 shared/monitor），systems/SYS-N 會用 develop=true 引用它，必須最先裝；逐一偵測已存在的 shared 套件（用 ./new-shared.sh <name> 建立）
 #   2. conda 環境 pharma-ds           — explore/ analyses/ ml/ 共用，含 Jupyter kernel
 #   3. systems/SYS-N         (Poetry, in-project venv)  — 逐一偵測已存在的系統
 #   4. pipeline               (Poetry, in-project venv, dbt)
@@ -34,8 +34,7 @@ unset VIRTUAL_ENV CONDA_PREFIX
 # ============================================================
 log "建立資料夾骨架"
 
-mkdir -p shared/pharma_core/pharma_core
-mkdir -p shared/pharma_core/tests
+mkdir -p shared
 mkdir -p explore analyses systems
 mkdir -p pipeline/models/staging pipeline/models/intermediate pipeline/models/mart
 mkdir -p pipeline/seeds pipeline/tests/singular pipeline/scripts
@@ -71,44 +70,10 @@ fi
 # ============================================================
 log "建立預設設定檔"
 
-if [ ! -f shared/pharma_core/pyproject.toml ]; then
-  cat > shared/pharma_core/pyproject.toml <<'EOF'
-[tool.poetry]
-name = "pharma-core"
-version = "0.1.0"
-description = "Shared core library for pharma-analytics"
-authors = []
-packages = [{ include = "pharma_core" }]
-
-[tool.poetry.dependencies]
-python = "^3.11"
-alembic = "^1.13"
-sqlalchemy = "^2.0"
-psycopg2-binary = "^2.9"
-python-dotenv = "^1.0"
-pandas = "^2.2"
-scipy = "^1.13"
-statsmodels = "^0.14"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-EOF
-  [ -f shared/pharma_core/pharma_core/__init__.py ] || touch shared/pharma_core/pharma_core/__init__.py
-fi
-
-if [ ! -f shared/pharma_core/tests/test_placeholder.py ]; then
-  cat > shared/pharma_core/tests/test_placeholder.py <<'EOF'
-def test_placeholder():
-    assert True
-EOF
-fi
-
-# Alembic（DB schema 基線，07 節 PHASE 0）— 用 shared/pharma_core 的 Poetry 環境執行：
-#   cd shared/pharma_core && poetry run alembic -c ../../infra/alembic.ini upgrade head
+# Alembic（DB schema 基線，07 節 PHASE 0）
+# 目前沒有指定要用哪個 poetry 環境執行 alembic（原本掛在已移除的 shared/pharma_core，
+# 需要 alembic + sqlalchemy + psycopg2-binary 依賴）——之後決定 DB 環境放哪裡時，
+# 記得回來補上對應的 poetry install 步驟與下面「下一步」的執行指令。
 if [ ! -f infra/alembic.ini ]; then
   cat > infra/alembic.ini <<'EOF'
 [alembic]
@@ -332,7 +297,7 @@ if [ ! -f .github/workflows/ci.yml ]; then
 name: CI
 on: [push, pull_request]
 jobs:
-  test:
+  monitor:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -340,24 +305,32 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install poetry
-      - run: cd shared/pharma_core && poetry install && poetry run pytest
+      - run: cd shared/monitor && poetry install && poetry run pytest
 EOF
 fi
 
 ok "預設設定檔就緒"
 
 # ============================================================
-# 2. [1/5] Poetry: shared/pharma_core
+# 2. [1/5] Poetry: shared/*（in-project venv）— 逐一偵測已存在的共用套件
 # ============================================================
-log "[1/5] 安裝 shared/pharma_core (Poetry)"
-if has poetry; then
-  if (cd shared/pharma_core && unset VIRTUAL_ENV CONDA_PREFIX && poetry install); then
-    ok "pharma_core 安裝完成"
-  else
-    fail "pharma_core 安裝失敗"
-  fi
+log "[1/5] 安裝 shared/* (Poetry, in-project venv)"
+shared_dirs=(shared/*/)
+if [ ${#shared_dirs[@]} -eq 0 ]; then
+  warn "尚未建立任何 shared/<name>，略過（用 ./new-shared.sh <name> 建立骨架）"
+elif ! has poetry; then
+  warn "找不到 poetry，跳過 shared 安裝（請先安裝：https://python-poetry.org）"
 else
-  warn "找不到 poetry，跳過 pharma_core 安裝（請先安裝：https://python-poetry.org）"
+  for dir in "${shared_dirs[@]}"; do
+    if [ -f "${dir}pyproject.toml" ]; then
+      log "  → ${dir}"
+      if (cd "$dir" && unset VIRTUAL_ENV CONDA_PREFIX && poetry config virtualenvs.in-project true --local && poetry install); then
+        ok "${dir} 安裝完成"
+      else
+        fail "${dir} 安裝失敗"
+      fi
+    fi
+  done
 fi
 
 # ============================================================
@@ -372,11 +345,19 @@ if has conda; then
   fi
 
   if [ $? -eq 0 ]; then
-    # 把 pharma_core 以 editable 模式裝進 pharma-ds，確保用到最新原始碼
-    conda run -n pharma-ds pip install -e shared/pharma_core \
-      && conda run -n pharma-ds python -m ipykernel install --user --name pharma-ds --display-name "pharma-ds" \
-      && ok "conda 環境 pharma-ds 就緒" \
-      || fail "pharma-ds 環境裝好了，但 editable install 或 kernel 註冊失敗"
+    # 把每個 shared/<name> 以 editable 模式裝進 pharma-ds，確保用到最新原始碼
+    editable_ok=true
+    for dir in shared/*/; do
+      [ -f "${dir}pyproject.toml" ] || continue
+      conda run -n pharma-ds pip install -e "$dir" || editable_ok=false
+    done
+    if [ "$editable_ok" = true ]; then
+      conda run -n pharma-ds python -m ipykernel install --user --name pharma-ds --display-name "pharma-ds" \
+        && ok "conda 環境 pharma-ds 就緒" \
+        || fail "pharma-ds 環境裝好了，但 kernel 註冊失敗"
+    else
+      fail "pharma-ds 環境裝好了，但至少一個 shared/<name> 的 editable install 失敗"
+    fi
   else
     fail "conda 環境 pharma-ds 建立/更新失敗"
   fi
@@ -467,8 +448,9 @@ cat <<'EOF'
 下一步：
   1. cp infra/.env.example .env         # 依實際 DB 連線資訊填寫，.env 不進版控
   2. conda activate pharma-ds
-  3. cd shared/pharma_core && poetry run alembic -c ../../infra/alembic.ini upgrade head
-                                         # DB schema 基線（07 節 PHASE 0），確認能連線
+  3. DB migration 環境目前未設置（原本掛在已移除的 shared/pharma_core，需要
+     alembic + sqlalchemy + psycopg2-binary 依賴）——決定放哪裡後，執行：
+     poetry run alembic -c infra/alembic.ini upgrade head  # DB schema 基線（07 節 PHASE 0）
   4. 建立 pipeline/profiles.yml（依 .env 內容手動建立，已在 .gitignore 排除，不進版控）
   5. cd pipeline && poetry run dbt debug   # 確認 dbt 連線設定正確後再 dbt run
 

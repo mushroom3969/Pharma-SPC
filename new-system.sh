@@ -3,7 +3,7 @@
 # 建立一個新的 systems/SYS-N 基本骨架（對照手冊 07 節 Systems 型結構）。
 # 用法: ./new-system.sh SYS-2-BatchRelease
 #
-# 建立完後執行 ./setup.sh，[3/5] 會自動偵測到新的 pyproject.toml 並裝好 Poetry 環境。
+# 建立完後執行 ./setup.sh，[4/6] 會自動偵測到新的 pyproject.toml 並裝好 Poetry 環境。
 
 set -euo pipefail
 
@@ -45,7 +45,7 @@ python = "^3.11"
 fastapi = "^0.115"
 uvicorn = { extras = ["standard"], version = "^0.32" }
 pydantic = "^2.9"
-pharma-core = { path = "../../shared/pharma_core", develop = true }
+pharma-monitor = { path = "../../shared/monitor", develop = true }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
@@ -94,7 +94,7 @@ ok "$SYS_DIR 骨架建立完成"
 cat <<EOF
 
 下一步:
-  1. ./setup.sh                 # 讓 [3/5] 幫 $SYS_NAME 裝 Poetry 環境
+  1. ./setup.sh                 # 讓 [4/6] 幫 $SYS_NAME 裝 Poetry 環境
   2. cd $SYS_DIR && poetry run uvicorn src.main:app --reload
 
 EOF

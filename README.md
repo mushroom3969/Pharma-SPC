@@ -56,14 +56,14 @@
 
 | 順序 | 環境 | 對應資料夾 | 負責角色 | 啟用方式 |
 |---|---|---|---|---|
-| 1 | Poetry（`shared/pharma_core`） | `shared/` | DS+後端 | `cd shared/pharma_core && poetry install` |
+| 1 | Poetry（`shared/monitor`，in-project venv） | `shared/` | DS+後端 | `cd shared/monitor && poetry install` |
 | 2 | Conda（`pharma-ds`，含 Jupyter kernel） | `explore/ analyses/ ml/` | DS+後端 / Monitoring | `conda activate pharma-ds` |
 | 3 | Poetry（systems/SYS-N，in-project venv） | `systems/SYS-N/` | DS+後端 | `cd systems/SYS-N && poetry run uvicorn src.main:app` |
 | 4 | Poetry（pipeline，in-project venv） | `pipeline/` | Data Engineer | `cd pipeline && poetry run dbt run` |
 | 5 | npm／pnpm（有 package.json 才裝） | `systems/SYS-N/src/frontend/` | 前端 | `pnpm dev` |
 
-> **為什麼 pharma_core 最先裝**
-> conda 環境跟每個 systems/SYS-N 的 poetry 環境都會用 `develop = true` / `pip install -e` 的方式引用它，順序反過來會直接裝失敗。
+> **為什麼 shared/monitor 最先裝**
+> conda 環境跟每個 systems/SYS-N 的 poetry 環境都會用 `develop = true` / `pip install -e` 的方式引用它（SPC 決策樹分析邏輯，`monitor.routing` 等），順序反過來會直接裝失敗。
 
 > **已知環境坑**
 > Poetry 環境常被 shell 裡殘留的 `VIRTUAL_ENV`／`CONDA_PREFIX` 污染，導致 `poetry run` 悄悄用錯 Python。下指令前先 `unset VIRTUAL_ENV CONDA_PREFIX` 是目前的固定解法。
