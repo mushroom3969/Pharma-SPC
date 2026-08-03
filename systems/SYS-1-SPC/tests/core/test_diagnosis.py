@@ -60,7 +60,7 @@ def few_data():
     three datas
     """
     rng = np.random.default_rng(42)
-    return pd.Series(rng.normal(3))
+    return pd.Series(rng.normal(0, 1, 1))
 
 
 class TestCheckNormality:
@@ -79,3 +79,17 @@ class TestCheckNormality:
     def test_too_few_points(self, few_data):
         with pytest.raises(ValueError):
             check_nromality(few_data)
+
+
+class TestAutocorrelationCheck:
+    def test_white_noise_in_lbtest(self, white_noise_data):
+        result = autocorrelation_check(white_noise_data)
+        assert result["ljungbox_p_value"] >= 0.05
+
+    def test_random_walk_in_lbtest(self, autocorrelation_data):
+        result = autocorrelation_check(autocorrelation_data)
+        assert result["ljungbox_p_value"] <=0.05
+
+    def test_too_few_points(self, few_data):
+        with pytest.raises(ValueError):
+            autocorrelation_check(few_data)

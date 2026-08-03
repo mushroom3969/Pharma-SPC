@@ -16,6 +16,8 @@ def check_nromality(data: pd.Series, alpha=0.05) -> dict:
     Returns:
     dict: A dictionary containing the Shapiro-Wilk test statistic, p-value, and a boolean indicating whether the null hypothesis (data is normally distributed) is rejected.
     """
+    if len(data) < 3:
+        raise ValueError("Sample size must be at least 3 to perform Shapiro-Wilk test.")
     stat, p_value = stats.shapiro(data)
     (osm, osr), _ = stats.probplot(data, dist="norm", plot=None)
 
@@ -39,6 +41,9 @@ def autocorrelation_check(data: pd.Series, alpha=0.05) -> dict:
     """
 
     lags = min(10, len(data) - 1)
+
+    if lags <= 1:
+        raise ValueError("Lags less than 1")
 
     lb_test = acorr_ljungbox(data, lags=lags, return_df=True)
     lb_p_value = lb_test["lb_pvalue"].values[0]
