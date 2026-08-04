@@ -6,6 +6,7 @@ class ChartLimits(BaseModel):
     mean: float
     ucl: float
     lcl: float
+    values: list[Optional[float]]
 
 
 class ImrPlotResponse(BaseModel):
@@ -24,7 +25,7 @@ class XsPlotResponse(BaseModel):
 
 
 class EwmaPlotResponse(BaseModel):
-    ewma_values: list[float]
+    ewma_values: list[Optional[float]]
     mean: float
     ucl: float
     lcl: float
@@ -32,8 +33,8 @@ class EwmaPlotResponse(BaseModel):
 
 class CusumPlotResponse(BaseModel):
     mean: float
-    c_plus: list[float]
-    c_minus: list[float]
+    c_plus: list[Optional[float]]
+    c_minus: list[Optional[float]]
     decision_limit: float
 
 

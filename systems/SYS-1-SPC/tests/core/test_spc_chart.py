@@ -58,8 +58,8 @@ class TestImrPlot:
     def test_returns_expected_keys(self, individual_df):
         result = SPCchart(individual_df, "control_variable").imr_plot()
         assert set(result.keys()) == {"i_chart", "mr_chart"}
-        assert set(result["i_chart"].keys()) == {"mean", "ucl", "lcl"}
-        assert set(result["mr_chart"].keys()) == {"mean", "ucl", "lcl"}
+        assert set(result["i_chart"].keys()) == {"mean", "ucl", "lcl", "values"}
+        assert set(result["mr_chart"].keys()) == {"mean", "ucl", "lcl", "values"}
 
     def test_wrong_subgroup_size_raises(self, subgroup5_df):
         with pytest.raises(ValueError):
@@ -165,12 +165,12 @@ class TestCusumPlot:
     def test_c_plus_starts_at_zero_and_nonnegative(self, individual_df):
         result = SPCchart(individual_df, "control_variable").cusum_plot()
         assert result["c_plus"][0] == 0
-        assert (result["c_plus"] >= 0).all()
+        assert all(v >= 0 for v in result["c_plus"])
 
     def test_c_minus_starts_at_zero_and_nonpositive(self, individual_df):
         result = SPCchart(individual_df, "control_variable").cusum_plot()
         assert result["c_minus"][0] == 0
-        assert (result["c_minus"] <= 0).all()
+        assert all(v <= 0 for v in result["c_minus"])
 
     def test_target_overrides_mean(self, individual_df):
         default = SPCchart(individual_df, "control_variable").cusum_plot()

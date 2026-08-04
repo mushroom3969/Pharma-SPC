@@ -4,6 +4,8 @@ import math
 
 from scipy import stats
 
+def _to_plot_values(arr) -> list:
+    return [None if pd.isna(v) else float(v) for v in arr]
 
 class SPCchart:
     """
@@ -67,9 +69,13 @@ class SPCchart:
         mr_ucl = 3.27 * mr_mean
         mr_lcl = 0  # MR chart 的 LCL 永遠是 0
 
+        # For plotting
+        all_batches = self.control_df.to_numpy().flatten()
+        all_mr = np.abs(np.diff(all_batches, axis=0))
+
         return {
-            "i_chart": {"mean": i_mean, "ucl": i_ucl, "lcl": i_lcl},
-            "mr_chart": {"mean": mr_mean, "ucl": mr_ucl, "lcl": mr_lcl},
+            "i_chart": {"mean": i_mean, "ucl": i_ucl, "lcl": i_lcl, "values": _to_plot_values(all_batches.tolist())},
+            "mr_chart": {"mean": mr_mean, "ucl": mr_ucl, "lcl": mr_lcl, "values": _to_plot_values(all_mr.tolist())},
         }
 
     def xr_plot(self) -> dict:
@@ -114,9 +120,13 @@ class SPCchart:
         r_ucl = D4 * r_bar
         r_lcl = D3 * r_bar
 
+        # For plotting
+        all_batches = self.control_df.mean(axis=1)
+        all_r = np.ptp(self.control_df, axis=1)
+
         return {
-            "x_bar_chart": {"mean": x_barbar, "ucl": x_bar_ucl, "lcl": x_bar_lcl},
-            "r_chart": {"mean": r_bar, "ucl": r_ucl, "lcl": r_lcl},
+            "x_bar_chart": {"mean": x_barbar, "ucl": x_bar_ucl, "lcl": x_bar_lcl, "values": _to_plot_values(all_batches.tolist())},
+            "r_chart": {"mean": r_bar, "ucl": r_ucl, "lcl": r_lcl, "values": _to_plot_values(all_r.tolist())},
         }
 
     def xs_plot(self) -> dict:
@@ -155,77 +165,74 @@ class SPCchart:
         s_ucl = b4 * s_bar
         s_lcl = b3 * s_bar
 
+        # For plotting
+        all_batches = self.control_df.mean(axis=1)
+        all_s = self.control_df.std(axis=1, ddof=1)
+        
+
         return {
-            "x_bar_chart": {"mean": x_barbar, "ucl": x_bar_ucl, "lcl": x_bar_lcl},
-            "s_chart": {"mean": s_bar, "ucl": s_ucl, "lcl": s_lcl},
+            "x_bar_chart": {"mean": x_barbar, "ucl": x_bar_ucl, "lcl": x_bar_lcl, "values": _to_plot_values(all_batches.tolist())},
+            "s_chart": {"mean": s_bar, "ucl": s_ucl, "lcl": s_lcl, "values": _to_plot_values(all_s.tolist())},
         }
 
     def ewma_plot(self) -> dict:
-        """
-        Generate EWMA (Exponentially Weighted Moving Average) control chart parameters.
-        Param data (array-like): The input data for which the EWMA chart parameters are calculated.
-        Param lambda_ (float): The smoothing parameter for the EWMA chart (default is 0.2).
-        Return dict: A dictionary containing the EWMA values, UCL, and LCL for the EWMA chart.
-        """
-
-        # Calculate EWMA values
         if self.subgroup_size != 1:
-            ewma_batch = self.golden_batches.mean(axis=1).to_numpy().flatten()
+            golden_batch = self.golden_batches.mean(axis=1).to_numpy().flatten()
+            all_batch = self.control_df.mean(axis=1).to_numpy().flatten()
         else:
-            ewma_batch = (
-                self.golden_batches.to_numpy().flatten()
-            )  # Flatten to 1D if only one column
+            golden_batch = self.golden_batches.to_numpy().flatten()
+            all_batch = self.control_df.to_numpy().flatten()
 
-        ewma_values = [ewma_batch[0]]  # Initialize with the first value
-
-        for i in range(1, len(ewma_batch)):
-            ewma_values.append(
-                self.lambda_ * ewma_batch[i] + (1 - self.lambda_) * ewma_values[i - 1]
-            )
-
-        ewma_values = np.array(ewma_values)
-
-        # Calculate control limits
-        mean = ewma_batch.mean()
-        sigma = ewma_batch.std(ddof=1)
-
+        # control limits 用 golden batches 算，nanmean/nanstd 避免 golden 裡也混到缺失值
+        mean = np.nanmean(golden_batch)
+        sigma = np.nanstd(golden_batch, ddof=1)
         ucl = mean + self.l * sigma * np.sqrt(self.lambda_ / (2 - self.lambda_))
         lcl = mean - self.l * sigma * np.sqrt(self.lambda_ / (2 - self.lambda_))
 
+        # 畫圖用全部批次；遇到缺失值該點留空，遞迴狀態延續前一個有效值
+        ewma_values = []
+        running = None
+        for x in all_batch:
+            if pd.isna(x):
+                ewma_values.append(None)
+                continue
+            running = x if running is None else self.lambda_ * x + (1 - self.lambda_) * running
+            ewma_values.append(running)
+
         return {"ewma_values": ewma_values, "mean": mean, "ucl": ucl, "lcl": lcl}
 
+
     def cusum_plot(self) -> dict:
-        """
-        Plot CUSUM chart for monitoring process stability.
-        param data (array-like): The input data for which the CUSUM chart is generated.
-        param target (float): The target value for the process. If None, the mean of the data is used.
-        param k (float): The reference value for the CUSUM chart.
-        param h (float): The decision interval for the CUSUM chart.
-        return dict: A dictionary containing the CUSUM values (c_plus and c_minus)
-        """
         if self.subgroup_size != 1:
-            cusum_batch = self.golden_batches.mean(axis=1).to_numpy().flatten()
+            golden_batch = self.golden_batches.mean(axis=1).to_numpy().flatten()
+            all_batch = self.control_df.mean(axis=1).to_numpy().flatten()
         else:
-            cusum_batch = (
-                self.golden_batches.to_numpy().flatten()
-            )  # Flatten to 1D if only
+            golden_batch = self.golden_batches.to_numpy().flatten()
+            all_batch = self.control_df.to_numpy().flatten()
 
-        mu0 = cusum_batch.mean() if self.target is None else self.target
+        mu0 = np.nanmean(golden_batch) if self.target is None else self.target
 
-        mr = np.abs(np.diff(cusum_batch))
-        sigma = np.std(mr, ddof=1) / np.sqrt(2)
-        if sigma == 0:
-            sigma = 1e-10  # Prevent division by zero
+        mr = np.abs(np.diff(golden_batch))
+        sigma = np.nanstd(mr, ddof=1) / np.sqrt(2)
+        if sigma == 0 or np.isnan(sigma):
+            sigma = 1e-10
 
         allowance = self.k * sigma
         decision_limit = self.h * sigma
 
-        c_plus = np.zeros(len(cusum_batch))
-        c_minus = np.zeros(len(cusum_batch))
-
-        for i in range(1, len(cusum_batch)):
-            c_plus[i] = max(0, c_plus[i - 1] + (cusum_batch[i] - mu0) - allowance)
-            c_minus[i] = min(0, c_minus[i - 1] + (cusum_batch[i] - mu0) + allowance)
+        c_plus = [0.0]
+        c_minus = [0.0]
+        running_plus, running_minus = 0.0, 0.0
+        for i in range(1, len(all_batch)):
+            x = all_batch[i]
+            if pd.isna(x):
+                c_plus.append(None)
+                c_minus.append(None)
+                continue
+            running_plus = max(0, running_plus + (x - mu0) - allowance)
+            running_minus = min(0, running_minus + (x - mu0) + allowance)
+            c_plus.append(running_plus)
+            c_minus.append(running_minus)
 
         return {
             "mean": mu0,
@@ -233,11 +240,14 @@ class SPCchart:
             "c_minus": c_minus,
             "decision_limit": decision_limit,
         }
+    
 
     def spectral_plot(self) -> dict:
         if self.subgroup_size != 1:
             stat_batch = self.golden_batches.mean(axis=1).to_numpy().flatten()
+            all_stat = self.control_df.mean(axis=1).to_numpy().flatten()
         else:
             stat_batch = self.golden_batches.to_numpy().flatten()
+            all_stat = self.control_df.to_numpy().flatten()
 
-        return {"mean": stat_batch.mean(), "ucl": self.usl, "lcl": self.lsl}
+        return {"mean": np.nanmean(stat_batch), "ucl": self.usl, "lcl": self.lsl, "values": _to_plot_values(all_stat.tolist())}
