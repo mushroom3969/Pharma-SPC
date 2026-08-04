@@ -41,8 +41,7 @@ SpectralPlotResponse = ChartLimits
 
 
 class SpcChartInitRequest(BaseModel):
-    data: list[dict[str, float]]
-    control_variable: str
+    canonical_feature: str
     golden_batches_index: Optional[list[int]] = None
     usl: Optional[float] = None
     lsl: Optional[float] = None

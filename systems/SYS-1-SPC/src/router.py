@@ -1,5 +1,5 @@
-from fastapi import APIRouter
 
+from fastapi import APIRouter, HTTPException
 from src.schema import *
 from src.orchestration.spc_orchestrator import *
 
@@ -8,12 +8,18 @@ router = APIRouter()
 
 @router.post("/spc/diagnosis/normality", response_model=CheckNormalityResponse)
 def check_normality(request: CheckNormalityRequest):
-    return run_diagnosis("Normality", request.data, request.alpha)
+    try:
+        return run_diagnosis("Normality", request.data, request.alpha)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/spc/diagnosis/autocorrelation", response_model=AutocorrelationCheckResponse)
 def check_autocorrelation(request: AutocorrelationCheckRequest):
-    return run_diagnosis("Autocorrelation", request.data)
+    try:
+        return run_diagnosis("Autocorrelation", request.data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 CHART_RESPONSE_MODELS = {
@@ -28,8 +34,11 @@ CHART_RESPONSE_MODELS = {
 
 def make_chart_endpoint(chart_type: str):
     def endpoint(request: SpcChartInitRequest):
-        params = request.model_dump(exclude={"data", "control_variable"})
-        return run_chart(f"{chart_type}_plot", request.data, request.control_variable, **params)
+        params = request.model_dump(exclude={"canonical_feature"})
+        try:
+            return run_chart(f"{chart_type}_plot",  request.canonical_feature, **params)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
     return endpoint
 
 
@@ -43,5 +52,6 @@ for chart_type, response_model in CHART_RESPONSE_MODELS.items():
 
 
 @router.get("/spc/chart/available-types", response_model=list[str])
-def get_available_chart_types(subgroup_size: int):
+def get_available_chart_types(canonical_feature: str):
+    subgroup_size = get_subgroup_size(canonical_feature)
     return available_chart_types(subgroup_size)
