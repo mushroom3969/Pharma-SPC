@@ -8,3 +8,6 @@ target/
 logs/
 profiles.yml
 node_modules/
+source_data/
+*.duckdb
+*.duckdb.wal
