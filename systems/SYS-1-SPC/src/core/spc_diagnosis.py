@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from scipy import stats
 
 from statsmodels.stats.diagnostic import acorr_ljungbox
@@ -6,25 +7,34 @@ from statsmodels.tsa.stattools import acf, pacf
 
 
 def check_nromality(data: pd.Series, alpha=0.05) -> dict:
-    """
-    Check if the data follows a normal distribution using the Shapiro-Wilk test.
+        """
+        Check if the data follows a normal distribution using the Shapiro-Wilk test.
 
-    Parameters:
-    data (array-like): The input data to be tested for normality.
-    alpha (float): The significance level for the test (default is 0.05).
+        Parameters:
+        data (array-like): The input data to be tested for normality.
+        alpha (float): The significance level for the test (default is 0.05).
 
-    Returns:
-    dict: A dictionary containing the Shapiro-Wilk test statistic, p-value, and a boolean indicating whether the null hypothesis (data is normally distributed) is rejected.
-    """
-    if len(data) < 3:
-        raise ValueError("Sample size must be at least 3 to perform Shapiro-Wilk test.")
-    stat, p_value = stats.shapiro(data)
-    (osm, osr), _ = stats.probplot(data, dist="norm", plot=None)
+        Returns:
+        dict: A dictionary containing the Shapiro-Wilk test statistic, p-value, and a boolean indicating whether the null hypothesis (data is normally distributed) is rejected.
+        """
+        stat, p_value = stats.shapiro(data)
+        (osm, osr), (slope, intercept, r) = stats.probplot(data, dist="norm", plot=None)
+        qq_line_x = np.array([osm.min, osm.max])
+        qq_line_y = slope * qq_line_x + intercept 
 
-    return {
-        "shapiro_stat": stat,
-        "shapiro_p_value": p_value,
-        "reject_null": bool(p_value < alpha),
+        return {
+        "normality": {
+            "method": "shapiro-wilk",
+            "statistic": stat,
+            "p_value": p_value,
+            "alpha": alpha,
+            "reject_null": bool(p_value < alpha),
+        },
+        "qq_plot": {
+            "points": {"x": osm.tolist(), "y": osr.tolist()},
+            "reference_line": {"x": qq_line_x.tolist(), "y": qq_line_y.tolist()},
+            "r": r,
+        },
     }
 
 
@@ -42,17 +52,22 @@ def autocorrelation_check(data: pd.Series, alpha=0.05) -> dict:
 
     lags = min(10, len(data) - 1)
 
-    if lags <= 1:
-        raise ValueError("Lags less than 1")
-
     lb_test = acorr_ljungbox(data, lags=lags, return_df=True)
-    lb_p_value = lb_test["lb_pvalue"].values[0]
+    lb_p_value = lb_test['lb_pvalue'].values[0]
 
     acf_values = acf(data, nlags=lags)
     pacf_values = pacf(data, nlags=lags)
 
     return {
-        "ljungbox_p_value": lb_p_value,
-        "acf_values": acf_values,
-        "pacf_values": pacf_values,
+        "autocorrelation": {
+            "method": "ljung-box",
+            "p_value": lb_p_value,
+            "reject_null": bool(lb_p_value < alpha)
+        },
+        "acf_plot": {
+            "points": {"x": list(range(len(acf_values))), "y": acf_values.tolist()},
+        },
+        "pacf_plot": {
+            "points": {"x": list(range(len(pacf_values))), "y": pacf_values.tolist()},
+        },
     }

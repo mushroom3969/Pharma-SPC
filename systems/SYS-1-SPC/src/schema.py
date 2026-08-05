@@ -1,75 +1,98 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
-class ChartLimits(BaseModel):
-    mean: float
-    ucl: float
-    lcl: float
-    values: list[Optional[float]]
+class CheckNormalityRequest(BaseModel):
+    data: list[float] = Field()
+    alpha: float = Field(default=0.05)
 
+class NormalityResult(BaseModel):
+    method: str = Field()
+    statistic: float = Field()
+    p_value: float = Field()
+    alpha: float = Field()
+    reject_null: bool = Field()
 
-class ImrPlotResponse(BaseModel):
-    i_chart: ChartLimits
-    mr_chart: ChartLimits
+class PointData(BaseModel):
+    x: float = Field()
+    y: float = Field()
 
+class ReferenceLine(BaseModel):
+    x: float = Field()
+    y: float = Field()
 
-class XrPlotResponse(BaseModel):
-    x_bar_chart: ChartLimits
-    r_chart: ChartLimits
-
-
-class XsPlotResponse(BaseModel):
-    x_bar_chart: ChartLimits
-    s_chart: ChartLimits
-
-
-class EwmaPlotResponse(BaseModel):
-    ewma_values: list[Optional[float]]
-    mean: float
-    ucl: float
-    lcl: float
-
-
-class CusumPlotResponse(BaseModel):
-    mean: float
-    c_plus: list[Optional[float]]
-    c_minus: list[Optional[float]]
-    decision_limit: float
-
-
-SpectralPlotResponse = ChartLimits
-
-
-class SpcChartInitRequest(BaseModel):
-    canonical_feature: str
-    golden_batches_index: Optional[list[int]] = None
-    usl: Optional[float] = None
-    lsl: Optional[float] = None
-    lambda_: float = 0.2
-    l: float = 3.0
-    target : Optional[float] = None
-    k: float = 0.5
-    h: float = 5.0
-    alpha: float = 0.05
-
+class QqplotResult(BaseModel):
+    points: PointData = Field()
+    reference_line: ReferenceLine = Field()
+    r: float = Field()
 
 class CheckNormalityResponse(BaseModel):
-    shapiro_stat: float
-    shapiro_p_value: float
-    reject_null: bool
-
-
-class CheckNormalityRequest(BaseModel):
-    data: list[float]
-    alpha: float = 0.05
-
-
-class AutocorrelationCheckResponse(BaseModel):
-    ljungbox_p_value: float
-    acf_values: list[float]
-    pacf_values: list[float]
-
+    normality: NormalityResult = Field()
+    qq_plot: QqplotResult = Field()
 
 class AutocorrelationCheckRequest(BaseModel):
-    data: list[float]
+    data: list[float] = Field()
+    alpha: float = Field()
+
+class AutocorrelationResult(BaseModel):
+    method: str = Field()
+    p_value: float = Field()
+    reject_null: bool = Field()
+ 
+class AcfPoint(BaseModel):
+    x: float = Field()
+    y: float = Field()
+
+class PacfPoint(BaseModel):
+    x: float = Field()
+    y: float = Field()
+
+class AutocorrelationResponse(BaseModel):
+    autocorrelation: AutocorrelationResult = Field()
+    acf_plot: AcfPoint = Field()
+    pacf_plot: PacfPoint = Field()
+
+
+class ImrPlotRequest(BaseModel):
+    data: list[dict[float]] = Field()
+    golden_batch_name: list = Field()
+    control_feature: str = Field()
+
+class ShewartchartResult(BaseModel):
+    x: list[str] = Field()
+    y: list[float] = Field()
+    mean: float = Field()
+    ucl: float = Field()
+    lcl: float = Field()
+
+class ImrPlotResponse(BaseModel):
+    i_chart: ShewartchartResult = Field()
+    mr_chart: ShewartchartResult = Field()
+
+class EwmaPlotRequest(BaseModel):
+    data: list[dict[float]] = Field()
+    golden_batch_name: list[str] = Field()
+    control_feature: str = Field()
+    lambda_: float  = Field(default=0.2)
+    l: float = Field(default=3)
+
+class EwmaPlotResponse(BaseModel):
+    x: list[str] = Field()
+    y: list[float] = Field()
+    mean: float = Field()
+    ucl: float = Field()
+    lcl: float = Field()
+
+class CusumPlotRequest(BaseModel):
+    data: list[dict[float]] = Field()
+    control_feature: str = Field()
+    target: float = Field(default=None)
+    k: float = Field(default=0.5)
+    h: float = Field(default=5.0)
+
+class CusumPlotResponse(BaseModel):
+    x: list[str] = Field()
+    y_c_plus: list[float] = Field()
+    y_c_minus: list[float] = Field()
+    mean: float = Field()
+    decision_limit: float = Field()
