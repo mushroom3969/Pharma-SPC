@@ -1,0 +1,40 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: raw_spd8_amsphere_a3_purification_version1
+      - name: raw_spd8_amsphere_a3_purification_version4
+      - name: raw_spd8_buffer_preparation_protocol_version1
+      - name: raw_spd8_buffer_preparation_protocol_version4
+      - name: raw_spd8_c_2nd_cell_inoculum_preparation_1000l_version1
+      - name: raw_spd8_c_2nd_cell_inoculum_preparation_1000l_version4
+      - name: raw_spd8_c_2nd_cell_inoculum_preparation_200l_version1
+      - name: raw_spd8_c_2nd_cell_inoculum_preparation_200l_version4
+      - name: raw_spd8_c_2nd_cell_inoculum_preparation_25l_version1
+      - name: raw_spd8_c_2nd_cell_inoculum_preparation_25l_version4
+      - name: raw_spd8_cell_clarification_process_version3
+      - name: raw_spd8_cell_clarification_process_version4
+      - name: raw_spd8_cell_culture_production_version3
+      - name: raw_spd8_cell_culture_production_version4
+      - name: raw_spd8_cell_inoculum_s1000_1_to_2_version1
+      - name: raw_spd8_cell_inoculum_s1000_1_to_2_version4
+      - name: raw_spd8_cell_inoculum_s1000_3_to_8_version1
+      - name: raw_spd8_cell_inoculum_s1000_3_to_8_version4
+      - name: raw_spd8_cell_inoculum_s5000_version1
+      - name: raw_spd8_cell_inoculum_s5000_version4
+      - name: raw_spd8_cell_inoculum_s500_version2
+      - name: raw_spd8_cell_inoculum_s500_version4
+      - name: raw_spd8_final_bulk_filling_and_fast_freezing_process_version1
+      - name: raw_spd8_final_bulk_filling_and_fast_freezing_process_version4
+      - name: raw_spd8_intermediate_adjustment_and_poros_benzyl_chromatography_process_version1
+      - name: raw_spd8_intermediate_adjustment_and_poros_benzyl_chromatography_process_version4
+      - name: raw_spd8_media_preparation_protocol_for_spd8_version4
+      - name: raw_spd8_media_preparation_protocol_for_spd8_version9
+      - name: raw_spd8_nanofiltration_process_version1
+      - name: raw_spd8_nanofiltration_process_version4
+      - name: raw_spd8_poros_50_hq_chromatography_and_depth_filtration_process_version1
+      - name: raw_spd8_poros_50_hq_chromatography_and_depth_filtration_process_version4
+      - name: raw_spd8_ufdf_and_formulation_process_version1
+      - name: raw_spd8_ufdf_and_formulation_process_version4
