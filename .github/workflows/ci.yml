@@ -1,7 +1,7 @@
 name: CI
 on: [push, pull_request]
 jobs:
-  monitor:
+  sys-1-spc:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -9,17 +9,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install poetry
-      - run: cd shared/monitor && poetry install && poetry run pytest
-
-  sys-1-monitor:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: pip install poetry
-      - run: cd systems/SYS-1-monitor && poetry install && poetry run pytest
+      - run: cd systems/SYS-1-SPC && poetry install && poetry run pytest
 
   pipeline:
     runs-on: ubuntu-latest
@@ -29,4 +19,4 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install poetry
-      - run: cd pipeline && poetry install
+      - run: cd pipeline && poetry install && poetry run dbt build
